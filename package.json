@@ -1,0 +1,13 @@
+{
+  "name": "dfa-minimizer",
+  "version": "1.0.0",
+  "description": "DFA Minimization Visualizer — Hopcroft's Algorithm with step-by-step partition refinement",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "build": "echo 'Static site, no build needed'"
+  },
+  "keywords": ["dfa", "automata", "minimization", "hopcroft", "visualization"],
+  "author": "",
+  "license": "MIT"
+}

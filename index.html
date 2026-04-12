@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DFA Minimizer — Automata Simplification Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-void:#050508; --bg-deep:#0a0a10; --bg-card:#0f0f18;
+    --bg-surface:#15151f; --bg-hover:#1a1a28;
+    --border:#1e1e30; --border-bright:#2a2a45;
+    --accent-cyan:#00e5ff; --accent-violet:#a259ff;
+    --accent-pink:#ff2d9f; --accent-green:#00ff94;
+    --accent-orange:#ff6b35; --accent-yellow:#ffd93d;
+    --text-primary:#e8e8f0; --text-secondary:#8888aa; --text-dim:#44445a;
+    --glow-cyan:0 0 20px rgba(0,229,255,0.3);
+    --glow-violet:0 0 20px rgba(162,89,255,0.3);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg-void);color:var(--text-primary);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+  body::after{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 20% 20%,rgba(162,89,255,0.06) 0%,transparent 50%),radial-gradient(ellipse at 80% 80%,rgba(0,229,255,0.06) 0%,transparent 50%);pointer-events:none;z-index:0;animation:bgPulse 8s ease-in-out infinite alternate;}
+  @keyframes bgPulse{from{opacity:.5}to{opacity:1}}
+  .app{position:relative;z-index:1;}
+
+  header{padding:18px 36px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:rgba(5,5,8,.88);backdrop-filter:blur(20px);position:sticky;top:0;z-index:100;}
+  .logo{display:flex;align-items:center;gap:14px;}
+  .logo-icon{width:36px;height:36px;background:linear-gradient(135deg,var(--accent-cyan),var(--accent-violet));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#000;box-shadow:var(--glow-cyan);}
+  .logo-text{font-size:17px;font-weight:800;letter-spacing:-.5px;background:linear-gradient(90deg,var(--accent-cyan),var(--accent-violet));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+  .logo-sub{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;}
+  .header-badge{font-family:'Space Mono',monospace;font-size:11px;color:var(--accent-cyan);border:1px solid rgba(0,229,255,.3);padding:4px 12px;border-radius:100px;letter-spacing:1px;}
+
+  main{max-width:1420px;margin:0 auto;padding:28px 20px;display:grid;grid-template-columns:390px 1fr;gap:22px;min-height:calc(100vh - 78px);}
+  .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+  .panel-header{padding:15px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.02);}
+  .panel-icon{width:27px;height:27px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;}
+  .panel-icon.cyan{background:rgba(0,229,255,.1);color:var(--accent-cyan);}
+  .panel-title{font-size:13px;font-weight:700;color:var(--text-primary);letter-spacing:.5px;}
+  .panel-body{padding:20px;}
+
+  .field-group{margin-bottom:16px;}
+  label{display:block;font-size:10px;font-family:'Space Mono',monospace;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:6px;}
+  input,textarea{width:100%;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:'Space Mono',monospace;font-size:13px;padding:9px 12px;outline:none;transition:border-color .2s,box-shadow .2s;}
+  input:focus,textarea:focus{border-color:var(--accent-cyan);box-shadow:0 0 0 3px rgba(0,229,255,.08);}
+  textarea{resize:vertical;min-height:90px;line-height:1.65;}
+  .hint{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:5px;line-height:1.5;}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 18px;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;cursor:pointer;border:none;transition:all .2s;position:relative;overflow:hidden;}
+  .btn::after{content:'';position:absolute;inset:0;background:#fff;opacity:0;transition:opacity .2s;}
+  .btn:hover::after{opacity:.05;}
+  .btn:active{transform:scale(.98);}
+  .btn-primary{background:linear-gradient(135deg,var(--accent-cyan),var(--accent-violet));color:#000;width:100%;justify-content:center;font-size:14px;box-shadow:0 4px 24px rgba(0,229,255,.22);}
+  .btn-secondary{background:var(--bg-surface);border:1px solid var(--border);color:var(--text-secondary);font-size:12px;padding:8px 13px;}
+  .btn-secondary:hover{border-color:var(--border-bright);color:var(--text-primary);}
+
+  .presets-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;}
+  .preset-btn{background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:9px 11px;cursor:pointer;text-align:left;transition:all .2s;}
+  .preset-btn:hover{border-color:var(--accent-cyan);background:rgba(0,229,255,.05);}
+  .preset-name{font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:2px;}
+  .preset-desc{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);}
+
+  .right-panel{display:flex;flex-direction:column;gap:22px;}
+  .viz-panel{flex:1;}
+
+  .viz-tabs{display:flex;border-bottom:1px solid var(--border);background:rgba(255,255,255,.02);padding:0 20px;overflow-x:auto;}
+  .viz-tab{padding:13px 15px;font-size:12px;font-weight:700;letter-spacing:.5px;cursor:pointer;border-bottom:2px solid transparent;color:var(--text-secondary);transition:all .2s;white-space:nowrap;}
+  .viz-tab.active{color:var(--accent-cyan);border-bottom-color:var(--accent-cyan);}
+  .viz-tab:hover:not(.active){color:var(--text-primary);}
+
+  .viz-content{padding:20px;}
+
+  .dfa-canvas-wrap{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;position:relative;}
+  .canvas-label{position:absolute;top:10px;left:13px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+
+  .stats-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px;}
+  .stat-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:13px 14px;text-align:center;}
+  .stat-value{font-size:26px;font-weight:800;line-height:1;margin-bottom:4px;}
+  .stat-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .stat-value.cyan{color:var(--accent-cyan);} .stat-value.violet{color:var(--accent-violet);}
+  .stat-value.green{color:var(--accent-green);} .stat-value.orange{color:var(--accent-orange);}
+
+  .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:56px 24px;text-align:center;gap:12px;color:var(--text-dim);}
+  .empty-icon{font-size:46px;opacity:.5;}
+  .empty-title{font-size:15px;font-weight:700;color:var(--text-secondary);}
+  .empty-desc{font-family:'Space Mono',monospace;font-size:11px;line-height:1.6;max-width:260px;}
+
+  .stepper{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .stepper-btn{width:34px;height:34px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .2s;}
+  .stepper-btn:hover:not(:disabled){border-color:var(--accent-cyan);color:var(--accent-cyan);}
+  .stepper-btn:disabled{opacity:.3;cursor:not-allowed;}
+  .stepper-info{flex:1;text-align:center;font-family:'Space Mono',monospace;font-size:12px;color:var(--text-secondary);}
+  .stepper-info strong{color:var(--accent-cyan);}
+
+  /* PARTITION STEPS */
+  .partition-step{margin-bottom:20px;animation:slideIn .35s ease-out;}
+  @keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+  .step-header{display:flex;align-items:center;gap:10px;margin-bottom:9px;flex-wrap:wrap;}
+  .step-badge{font-family:'Space Mono',monospace;font-size:10px;padding:3px 10px;border-radius:100px;letter-spacing:1px;}
+  .step-badge.initial{background:rgba(0,229,255,.1);color:var(--accent-cyan);border:1px solid rgba(0,229,255,.2);}
+  .step-badge.split{background:rgba(162,89,255,.1);color:var(--accent-violet);border:1px solid rgba(162,89,255,.2);}
+  .step-badge.stable{background:rgba(0,255,148,.1);color:var(--accent-green);border:1px solid rgba(0,255,148,.2);}
+  .step-desc{font-size:13px;color:var(--text-secondary);}
+  .partitions-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .partition-group{display:flex;align-items:center;gap:3px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:5px 9px;transition:all .3s;}
+  .partition-group.split-hl{border-color:var(--accent-pink);background:rgba(255,45,159,.08);}
+  .partition-group.stable{border-color:var(--accent-green);background:rgba(0,255,148,.06);}
+  .p-label{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-right:2px;}
+  .p-state{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;color:var(--text-primary);}
+  .group-0 .p-state{background:rgba(0,229,255,.15);color:var(--accent-cyan);}
+  .group-1 .p-state{background:rgba(162,89,255,.15);color:var(--accent-violet);}
+  .group-2 .p-state{background:rgba(0,255,148,.15);color:var(--accent-green);}
+  .group-3 .p-state{background:rgba(255,107,53,.15);color:var(--accent-orange);}
+  .group-4 .p-state{background:rgba(255,45,159,.15);color:var(--accent-pink);}
+  .group-5 .p-state{background:rgba(255,217,61,.15);color:var(--accent-yellow);}
+
+  /* TABLES */
+  .tt-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+  table{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:12px;}
+  thead th{background:var(--bg-surface);padding:9px 13px;text-align:center;font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-secondary);border-bottom:1px solid var(--border);}
+  tbody td{padding:8px 13px;text-align:center;border-bottom:1px solid var(--border);color:var(--text-primary);transition:background .2s;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover td{background:var(--bg-hover);}
+  td.state-col{font-weight:700;color:var(--text-secondary);text-align:left;padding-left:16px;}
+
+  .equiv-table{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:11px;}
+  .equiv-table th,.equiv-table td{padding:6px 9px;border:1px solid var(--border);text-align:center;}
+  .equiv-table th{background:var(--bg-surface);color:var(--text-secondary);}
+  .equiv-cell.equiv{background:rgba(0,255,148,.1);color:var(--accent-green);}
+  .equiv-cell.not-equiv{background:rgba(255,45,159,.1);color:var(--accent-pink);}
+  .equiv-cell.empty{background:var(--bg-deep);color:var(--text-dim);}
+
+  /* RESULT */
+  .result-banner{background:linear-gradient(135deg,rgba(0,255,148,.07),rgba(0,229,255,.07));border:1px solid rgba(0,255,148,.22);border-radius:12px;padding:15px 18px;margin-bottom:22px;display:flex;align-items:center;gap:14px;}
+  .result-banner-icon{font-size:24px;}
+  .result-banner-title{font-size:14px;font-weight:800;color:var(--accent-green);margin-bottom:3px;}
+  .result-banner-sub{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-secondary);}
+
+  /* LARGE result diagrams */
+  .result-compare{display:flex;flex-direction:column;gap:18px;}
+  .result-dfa-label{font-family:'Space Mono',monospace;font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-secondary);margin-bottom:9px;display:flex;align-items:center;gap:8px;}
+  .result-dfa-label::after{content:'';flex:1;height:1px;background:var(--border);}
+  .divider-arrow{text-align:center;font-size:22px;color:var(--accent-cyan);padding:2px;line-height:1;}
+  .dfa-svg-lg{width:100%;height:460px;display:block;}
+
+  .tag{font-family:'Space Mono',monospace;font-size:10px;padding:2px 8px;border-radius:4px;display:inline-block;}
+  .tag.cyan{background:rgba(0,229,255,.1);color:var(--accent-cyan);}
+  .tag.green{background:rgba(0,255,148,.1);color:var(--accent-green);}
+  .tag.violet{background:rgba(162,89,255,.1);color:var(--accent-violet);}
+  .tag.orange{background:rgba(255,107,53,.1);color:var(--accent-orange);}
+
+  .info-box{background:rgba(0,229,255,.04);border:1px solid rgba(0,229,255,.12);border-radius:8px;padding:12px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-secondary);line-height:1.75;margin-bottom:15px;}
+  .info-box strong{color:var(--accent-cyan);}
+  .error-box{background:rgba(255,45,159,.05);border:1px solid rgba(255,45,159,.2);border-radius:8px;padding:12px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--accent-pink);line-height:1.7;margin-bottom:14px;display:none;}
+  .divider-label{display:flex;align-items:center;gap:12px;margin:14px 0;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .divider-label::before,.divider-label::after{content:'';flex:1;height:1px;background:var(--border);}
+
+  ::-webkit-scrollbar{width:6px;height:6px;}
+  ::-webkit-scrollbar-track{background:var(--bg-deep);}
+  ::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px;}
+  @media(max-width:1100px){main{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">
+      <div class="logo-icon">∂</div>
+      <div>
+        <div class="logo-text">DFA Minimizer</div>
+        <div class="logo-sub">Automata Simplification Engine</div>
+      </div>
+    </div>
+    <div class="header-badge">Partition Refinement</div>
+  </header>
+
+  <main>
+    <!-- LEFT: INPUT -->
+    <div style="display:flex;flex-direction:column;gap:20px;">
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-icon cyan">⚙</div>
+          <div class="panel-title">DFA Configuration</div>
+        </div>
+        <div class="panel-body">
+          <div class="info-box">Define your DFA. Transitions: <strong>state,symbol→state</strong> or <strong>state,symbol->state</strong> (one per line)</div>
+
+          <div class="presets-grid">
+            <button class="preset-btn" onclick="loadPreset('simple')">
+              <div class="preset-name">Simple Even-A</div>
+              <div class="preset-desc">3 states, 2 symbols</div>
+            </button>
+            <button class="preset-btn" onclick="loadPreset('textbook')">
+              <div class="preset-name">Textbook Classic</div>
+              <div class="preset-desc">5 states, reducible</div>
+            </button>
+            <button class="preset-btn" onclick="loadPreset('already_min')">
+              <div class="preset-name">Already Minimal</div>
+              <div class="preset-desc">No reduction possible</div>
+            </button>
+            <button class="preset-btn" onclick="loadPreset('complex')">
+              <div class="preset-name">Complex DFA</div>
+              <div class="preset-desc">6 states, multiple merges</div>
+            </button>
+          </div>
+
+          <div class="divider-label">or define manually</div>
+
+          <div class="field-group">
+            <label>States</label>
+            <input type="text" id="inp-states" placeholder="q0, q1, q2, q3, q4">
+          </div>
+          <div class="field-group">
+            <label>Alphabet (symbols)</label>
+            <input type="text" id="inp-alphabet" placeholder="a, b">
+          </div>
+          <div class="field-group">
+            <label>Initial State</label>
+            <input type="text" id="inp-initial" placeholder="q0">
+          </div>
+          <div class="field-group">
+            <label>Accepting States</label>
+            <input type="text" id="inp-accepting" placeholder="q1, q3">
+          </div>
+          <div class="field-group">
+            <label>Transition Function</label>
+            <textarea id="inp-transitions" placeholder="q0,a→q1&#10;q0,b→q2&#10;q1,a→q3"></textarea>
+            <div class="hint">Format: state,symbol→nextState (one per line)</div>
+          </div>
+
+          <div class="error-box" id="error-box"></div>
+
+          <button class="btn btn-primary" onclick="runMinimization()">▶ Run Minimization</button>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn btn-secondary" onclick="resetAll()" style="flex:1">↺ Reset</button>
+            <button class="btn btn-secondary" onclick="exportResult()" style="flex:1" id="btn-export" disabled>↓ Export</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: VISUALIZATION -->
+    <div class="right-panel">
+      <div class="stats-bar" id="stats-bar" style="display:none;">
+        <div class="stat-card"><div class="stat-value cyan" id="stat-orig">0</div><div class="stat-label">Original States</div></div>
+        <div class="stat-card"><div class="stat-value violet" id="stat-min">0</div><div class="stat-label">Minimized States</div></div>
+        <div class="stat-card"><div class="stat-value green" id="stat-reduced">0</div><div class="stat-label">States Removed</div></div>
+        <div class="stat-card"><div class="stat-value orange" id="stat-iter">0</div><div class="stat-label">Iterations</div></div>
+      </div>
+
+      <div class="panel viz-panel">
+        <div class="viz-tabs">
+          <div class="viz-tab active" data-tab="diagram" onclick="switchTab('diagram')">Graph View</div>
+          <div class="viz-tab" data-tab="partition" onclick="switchTab('partition')">Partition Steps</div>
+          <div class="viz-tab" data-tab="table" onclick="switchTab('table')">Transition Table</div>
+          <div class="viz-tab" data-tab="equivalence" onclick="switchTab('equivalence')">Equiv. Table</div>
+          <div class="viz-tab" data-tab="result" onclick="switchTab('result')">Result</div>
+        </div>
+
+        <!-- GRAPH VIEW -->
+        <div class="viz-content tab-content" id="tab-diagram">
+          <div id="graph-empty" class="empty-state">
+            <div class="empty-icon">◈</div>
+            <div class="empty-title">No DFA Loaded</div>
+            <div class="empty-desc">Configure your DFA and click Run Minimization.</div>
+          </div>
+          <div id="graph-content" style="display:none;">
+            <div class="stepper">
+              <button class="stepper-btn" id="step-prev" onclick="navigateStep(-1)" disabled>◀</button>
+              <div class="stepper-info">Step <strong id="step-current">1</strong> of <strong id="step-total">1</strong> — <span id="step-desc">Initial DFA</span></div>
+              <button class="stepper-btn" id="step-next" onclick="navigateStep(1)">▶</button>
+            </div>
+            <div class="dfa-canvas-wrap">
+              <div class="canvas-label" id="canvas-label">ORIGINAL DFA</div>
+              <svg style="width:100%;height:360px;display:block;" id="dfa-svg" viewBox="0 0 820 360"></svg>
+            </div>
+            <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+              <span class="tag cyan">→ Initial</span>
+              <span class="tag green">◎ Accepting</span>
+              <span class="tag" style="background:rgba(100,90,170,.2);color:#9988cc;">● Normal</span>
+              <span class="tag violet">◉ Partition Group</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- PARTITION STEPS -->
+        <div class="viz-content tab-content" id="tab-partition" style="display:none;">
+          <div id="partition-empty" class="empty-state">
+            <div class="empty-icon">⋮</div>
+            <div class="empty-title">No Partitions Yet</div>
+            <div class="empty-desc">Run minimization to see step-by-step partition refinement.</div>
+          </div>
+          <div id="partition-content" style="display:none;"><div id="partition-steps"></div></div>
+        </div>
+
+        <!-- TRANSITION TABLE -->
+        <div class="viz-content tab-content" id="tab-table" style="display:none;">
+          <div id="table-empty" class="empty-state">
+            <div class="empty-icon">⊞</div>
+            <div class="empty-title">No Table Yet</div>
+            <div class="empty-desc">Run minimization to see the transition table.</div>
+          </div>
+          <div id="table-content" style="display:none;"></div>
+        </div>
+
+        <!-- EQUIVALENCE TABLE -->
+        <div class="viz-content tab-content" id="tab-equivalence" style="display:none;">
+          <div id="equiv-empty" class="empty-state">
+            <div class="empty-icon">≡</div>
+            <div class="empty-title">No Equivalence Data</div>
+            <div class="empty-desc">Run minimization to see the equivalence table.</div>
+          </div>
+          <div id="equiv-content" style="display:none;"></div>
+        </div>
+
+        <!-- RESULT -->
+        <div class="viz-content tab-content" id="tab-result" style="display:none;">
+          <div id="result-empty" class="empty-state">
+            <div class="empty-icon">✦</div>
+            <div class="empty-title">No Result Yet</div>
+            <div class="empty-desc">Run minimization to see the final minimized DFA.</div>
+          </div>
+          <div id="result-content" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+// ===================================================================
+// GLOBALS
+// ===================================================================
+let dfaData = null, minResult = null, currentStep = 0, allSteps = [];
+
+// Color palette for partition groups
+const GC = [
+  {fill:'rgba(0,229,255,.16)',  stroke:'#00e5ff', text:'#00e5ff'},
+  {fill:'rgba(162,89,255,.16)', stroke:'#a259ff', text:'#c299ff'},
+  {fill:'rgba(0,255,148,.16)',  stroke:'#00ff94', text:'#00ff94'},
+  {fill:'rgba(255,107,53,.16)', stroke:'#ff6b35', text:'#ff8855'},
+  {fill:'rgba(255,45,159,.16)', stroke:'#ff2d9f', text:'#ff66bb'},
+  {fill:'rgba(255,217,61,.16)', stroke:'#ffd93d', text:'#ffe070'},
+];
+
+// ===================================================================
+// PRESETS
+// ===================================================================
+const PRESETS = {
+  simple:{states:'q0, q1, q2',alphabet:'a, b',initial:'q0',accepting:'q0',
+    transitions:'q0,a→q0\nq0,b→q1\nq1,a→q0\nq1,b→q2\nq2,a→q2\nq2,b→q2'},
+  textbook:{states:'q0, q1, q2, q3, q4',alphabet:'a, b',initial:'q0',accepting:'q1, q3',
+    transitions:'q0,a→q1\nq0,b→q2\nq1,a→q3\nq1,b→q4\nq2,a→q4\nq2,b→q3\nq3,a→q3\nq3,b→q4\nq4,a→q4\nq4,b→q4'},
+  already_min:{states:'q0, q1, q2',alphabet:'0, 1',initial:'q0',accepting:'q2',
+    transitions:'q0,0→q0\nq0,1→q1\nq1,0→q1\nq1,1→q2\nq2,0→q2\nq2,1→q0'},
+  complex:{states:'A, B, C, D, E, F',alphabet:'0, 1',initial:'A',accepting:'C, D',
+    transitions:'A,0→B\nA,1→C\nB,0→A\nB,1→D\nC,0→E\nC,1→F\nD,0→E\nD,1→F\nE,0→E\nE,1→F\nF,0→F\nF,1→E'}
+};
+
+function loadPreset(name){
+  const p=PRESETS[name];
+  document.getElementById('inp-states').value=p.states;
+  document.getElementById('inp-alphabet').value=p.alphabet;
+  document.getElementById('inp-initial').value=p.initial;
+  document.getElementById('inp-accepting').value=p.accepting;
+  document.getElementById('inp-transitions').value=p.transitions;
+  hideError();
+}
+
+// ===================================================================
+// PARSE DFA
+// ===================================================================
+function parseDFA(){
+  const states=document.getElementById('inp-states').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const alphabet=document.getElementById('inp-alphabet').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const initial=document.getElementById('inp-initial').value.trim();
+  const accepting=document.getElementById('inp-accepting').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const transLines=document.getElementById('inp-transitions').value.split('\n').map(s=>s.trim()).filter(Boolean);
+
+  if(!states.length) throw new Error('No states defined.');
+  if(!alphabet.length) throw new Error('No alphabet symbols defined.');
+  if(!initial) throw new Error('No initial state defined.');
+  if(!states.includes(initial)) throw new Error(`Initial state "${initial}" not in states list.`);
+  for(const a of accepting) if(!states.includes(a)) throw new Error(`Accepting state "${a}" not in states list.`);
+
+  const transitions={};
+  for(const st of states) transitions[st]={};
+
+  for(const line of transLines){
+    // Match → or ->
+    const m=line.match(/^([^,]+),(.+?)(?:→|->)(.+)$/);
+    if(!m) throw new Error(`Invalid transition: "${line}"\nExpected format: state,symbol→nextState`);
+    const from=m[1].trim(), sym=m[2].trim(), to=m[3].trim();
+    if(!states.includes(from)) throw new Error(`Unknown source state in transition: "${from}"`);
+    if(!states.includes(to)) throw new Error(`Unknown target state in transition: "${to}"`);
+    if(!alphabet.includes(sym)) throw new Error(`Unknown symbol in transition: "${sym}"`);
+    transitions[from][sym]=to;
+  }
+  return {states,alphabet,initial,accepting,transitions};
+}
+
+// ===================================================================
+// REACHABILITY
+// ===================================================================
+function reachableStates(dfa){
+  const visited=new Set([dfa.initial]);
+  const queue=[dfa.initial];
+  while(queue.length){
+    const s=queue.shift();
+    for(const sym of dfa.alphabet){
+      const t=dfa.transitions[s]?.[sym];
+      if(t&&!visited.has(t)){visited.add(t);queue.push(t);}
+    }
+  }
+  return [...visited];
+}
+
+// ===================================================================
+// MINIMIZATION — CORRECT PARTITION REFINEMENT
+//
+// CRITICAL FIX: Each iteration uses a FROZEN SNAPSHOT of the
+// current partition to compute all signatures. We never use
+// an updated partition within the same iteration. This ensures
+// that splits in one group don't corrupt the signature computation
+// for other groups in the same pass. We loop until a full pass
+// produces no changes.
+// ===================================================================
+function minimizeDFA(dfa){
+  const steps=[];
+  const reachable=reachableStates(dfa);
+  const accepting=dfa.accepting.filter(s=>reachable.includes(s));
+  const nonAccepting=reachable.filter(s=>!accepting.includes(s));
+
+  // Initial partition: {accepting} and {non-accepting}
+  let partition=[];
+  if(accepting.length>0) partition.push([...accepting]);
+  if(nonAccepting.length>0) partition.push([...nonAccepting]);
+
+  // Which group index does state s belong to in a given partition?
+  function groupOf(state, part){
+    for(let i=0;i<part.length;i++) if(part[i].includes(state)) return i;
+    return null; // transition leads outside reachable (undefined/trap)
+  }
+
+  // Compute the distinguishing signature of a state w.r.t. a partition snapshot
+  function sig(state, partSnap){
+    return dfa.alphabet.map(sym=>{
+      const t=dfa.transitions[state]?.[sym];
+      if(t===undefined||t===null) return 'TRAP';
+      const g=groupOf(t,partSnap);
+      return g===null ? 'TRAP' : g;
+    }).join('|');
+  }
+
+  steps.push({
+    type:'initial',
+    partition:partition.map(g=>[...g]),
+    desc:'Initial partition: {accepting states} vs {non-accepting states}'
+  });
+
+  let changed=true;
+  let iteration=0;
+
+  while(changed){
+    changed=false;
+    iteration++;
+
+    // *** FREEZE the current partition as the reference for all signature computations this round ***
+    const snap=partition.map(g=>[...g]);
+    const newPartition=[];
+
+    for(let gi=0;gi<snap.length;gi++){
+      const group=snap[gi];
+
+      if(group.length===1){
+        newPartition.push([...group]);
+        continue;
+      }
+
+      // Compute signature for every state using snap (not newPartition)
+      const sigMap={};
+      for(const state of group){
+        const s=sig(state,snap);
+        if(!sigMap[s]) sigMap[s]=[];
+        sigMap[s].push(state);
+      }
+
+      const subGroups=Object.values(sigMap);
+
+      if(subGroups.length>1){
+        // Split detected
+        changed=true;
+        for(const sg of subGroups) newPartition.push([...sg]);
+
+        // Record this split (remaining old groups appended for display)
+        const remaining=snap.slice(gi+1);
+        const displayPart=[...newPartition,...remaining].map(g=>[...g]);
+        steps.push({
+          type:'split',
+          partition:displayPart,
+          desc:`Iteration ${iteration}: Split {${group.join(', ')}} into ${subGroups.length} subgroups`,
+          splitGroup:[...group],
+          splitResult:subGroups.map(sg=>[...sg]),
+          iteration
+        });
+      } else {
+        newPartition.push([...group]);
+      }
+    }
+
+    if(changed) partition=newPartition;
+  }
+
+  // Final stable record
+  steps.push({
+    type:'stable',
+    partition:partition.map(g=>[...g]),
+    desc:`Partition is stable after ${iteration} iteration${iteration!==1?'s':''} — no further splits possible`,
+    iteration
+  });
+
+  // Build minimized DFA state labels
+  // Use member names when singleton, else wrap in braces
+  const minStates=partition.map(group=>({
+    id: group.length===1 ? group[0] : `{${group.join(',')}}`,
+    members:[...group],
+    isInitial:group.includes(dfa.initial),
+    isAccepting:group.some(s=>accepting.includes(s))
+  }));
+
+  function getMinId(s){
+    const ms=minStates.find(m=>m.members.includes(s));
+    return ms?ms.id:null;
+  }
+
+  const minTrans={};
+  for(const ms of minStates){
+    minTrans[ms.id]={};
+    const rep=ms.members[0];
+    for(const sym of dfa.alphabet){
+      const t=dfa.transitions[rep]?.[sym];
+      if(t!=null){
+        const tid=getMinId(t);
+        if(tid!=null) minTrans[ms.id][sym]=tid;
+      }
+    }
+  }
+
+  return {
+    steps,partition,minStates,
+    minDFA:{
+      states:minStates.map(m=>m.id),
+      alphabet:dfa.alphabet,
+      initial:minStates.find(m=>m.isInitial)?.id,
+      accepting:minStates.filter(m=>m.isAccepting).map(m=>m.id),
+      transitions:minTrans
+    },
+    originalReachable:reachable,
+    unreachable:dfa.states.filter(s=>!reachable.includes(s)),
+    mergedPairs:minStates.filter(m=>m.members.length>1),
+    iterations:iteration
+  };
+}
+
+// ===================================================================
+// SVG RENDERING
+// ===================================================================
+function mkEl(tag,attrs={}){
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const[k,v]of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+
+function mkMarker(id,color){
+  const m=mkEl('marker',{id,markerWidth:'9',markerHeight:'7',refX:'9',refY:'3.5',orient:'auto'});
+  m.appendChild(mkEl('polygon',{points:'0 0, 9 3.5, 0 7',fill:color}));
+  return m;
+}
+
+function computeLayout(states,W,H,nodeR){
+  const n=states.length;
+  if(n===1) return {[states[0]]:{x:W/2,y:H/2}};
+  const cx=W/2,cy=H/2;
+  const maxR=Math.min(W,H)/2-nodeR-28;
+  const r=Math.min(maxR,50+n*14);
+  const pos={};
+  states.forEach((s,i)=>{
+    const angle=(2*Math.PI*i/n)-Math.PI/2;
+    pos[s]={x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)};
+  });
+  return pos;
+}
+
+// Appearance for non-grouped states — normal states get a visible indigo
+function stateApp(state,initial,accepting){
+  const isI=state===initial, isA=accepting.includes(state);
+  if(isI&&isA) return {fill:'rgba(0,229,255,.2)',stroke:'#00e5ff',text:'#ffffff'};
+  if(isI)      return {fill:'rgba(0,229,255,.14)',stroke:'#00e5ff',text:'#e8f8ff'};
+  if(isA)      return {fill:'rgba(0,255,148,.14)',stroke:'#00ff94',text:'#e8fff4'};
+  // Normal state: rich indigo so clearly visible
+  return {fill:'rgba(110,90,200,.22)',stroke:'#7766cc',text:'#ccc0ff'};
+}
+
+const MARKER_MAP={
+  '#00e5ff':'arr-c','#a259ff':'arr-v','#00ff94':'arr-g',
+  '#ff6b35':'arr-o','#ff2d9f':'arr-p','#ffd93d':'arr-y','#7766cc':'arr-n'
+};
+
+function renderDFA(svgId,states,alphabet,initial,accepting,transitions,partGroups,canvasLabel){
+  const svg=document.getElementById(svgId);
+  if(!svg) return;
+  svg.innerHTML='';
+
+  const vb=svg.getAttribute('viewBox').split(' ').map(Number);
+  const W=vb[2]||820, H=vb[3]||360;
+  const nodeR=Math.max(22,Math.min(30,38-states.length*1.2));
+
+  const pos=computeLayout(states,W,H,nodeR);
+
+  // Build group color map
+  const gcMap={};
+  if(partGroups) partGroups.forEach((grp,gi)=>grp.forEach(s=>gcMap[s]=GC[gi%GC.length]));
+
+  // Defs
+  const defs=mkEl('defs');
+  [['arr-c','#00e5ff'],['arr-v','#a259ff'],['arr-g','#00ff94'],
+   ['arr-o','#ff6b35'],['arr-p','#ff2d9f'],['arr-y','#ffd93d'],
+   ['arr-n','#7766cc'],['arr-b','#3a3a5a']
+  ].forEach(([id,c])=>defs.appendChild(mkMarker(id,c)));
+  svg.appendChild(defs);
+
+  // Collect edges grouped by (from,to) pair
+  const edgeMap={};
+  for(const from of states){
+    for(const sym of alphabet){
+      const to=transitions[from]?.[sym];
+      if(!to) continue;
+      const key=`${from}§${to}`;
+      if(!edgeMap[key]) edgeMap[key]={from,to,syms:[]};
+      edgeMap[key].syms.push(sym);
+    }
+  }
+
+  // Draw edges
+  for(const {from,to,syms} of Object.values(edgeMap)){
+    const p1=pos[from],p2=pos[to];
+    if(!p1||!p2) continue;
+    const gc=gcMap[from];
+    const stroke=gc?gc.stroke:'#3a3a5a';
+    const markId=MARKER_MAP[stroke]||'arr-b';
+    const lbl=syms.join(', ');
+
+    if(from===to){
+      const lx=p1.x;
+      const d=`M ${lx-nodeR*.5} ${p1.y-nodeR} C ${lx-nodeR*2} ${p1.y-nodeR*3.4} ${lx+nodeR*2} ${p1.y-nodeR*3.4} ${lx+nodeR*.5} ${p1.y-nodeR}`;
+      svg.appendChild(mkEl('path',{d,fill:'none',stroke,'stroke-width':'1.8','marker-end':`url(#${markId})`}));
+      const t=mkEl('text',{x:lx,y:p1.y-nodeR*3.5,'text-anchor':'middle','dominant-baseline':'central',fill:'#aaaacc','font-family':'Space Mono,monospace','font-size':'11'});
+      t.textContent=lbl; svg.appendChild(t);
+    } else {
+      const revKey=`${to}§${from}`;
+      const both=!!edgeMap[revKey];
+      const dx=p2.x-p1.x,dy=p2.y-p1.y;
+      const dist=Math.hypot(dx,dy);
+      const ux=dx/dist,uy=dy/dist,nx=-uy,ny=ux;
+      const off=both?14:0;
+      const sx=p1.x+ux*nodeR+nx*off, sy=p1.y+uy*nodeR+ny*off;
+      const ex=p2.x-ux*(nodeR+2)+nx*off, ey=p2.y-uy*(nodeR+2)+ny*off;
+      let d;
+      if(both){
+        const qx=(p1.x+p2.x)/2+nx*off*2.2, qy=(p1.y+p2.y)/2+ny*off*2.2;
+        d=`M ${sx} ${sy} Q ${qx} ${qy} ${ex} ${ey}`;
+      } else {
+        d=`M ${sx} ${sy} L ${ex} ${ey}`;
+      }
+      svg.appendChild(mkEl('path',{d,fill:'none',stroke,'stroke-width':'1.8','marker-end':`url(#${markId})`}));
+      const mx=(sx+ex)/2+nx*(off+12),my=(sy+ey)/2+ny*(off+12);
+      const t=mkEl('text',{x:mx,y:my,'text-anchor':'middle','dominant-baseline':'central',fill:'#aaaacc','font-family':'Space Mono,monospace','font-size':'11'});
+      t.textContent=lbl; svg.appendChild(t);
+    }
+  }
+
+  // Initial arrow
+  if(pos[initial]){
+    const ip=pos[initial];
+    svg.appendChild(mkEl('line',{x1:ip.x-nodeR-30,y1:ip.y,x2:ip.x-nodeR-2,y2:ip.y,stroke:'#00e5ff','stroke-width':'2','marker-end':'url(#arr-c)'}));
+  }
+
+  // Draw nodes
+  for(const state of states){
+    const p=pos[state];
+    if(!p) continue;
+    const gc=gcMap[state];
+    let fill,stroke,text;
+    if(gc){fill=gc.fill;stroke=gc.stroke;text=gc.text;}
+    else {const a=stateApp(state,initial,accepting);fill=a.fill;stroke=a.stroke;text=a.text;}
+
+    const g=mkEl('g');
+    g.appendChild(mkEl('circle',{cx:p.x,cy:p.y,r:nodeR,fill,stroke,'stroke-width':'2'}));
+    // Double ring for accepting
+    if(accepting.includes(state)){
+      g.appendChild(mkEl('circle',{cx:p.x,cy:p.y,r:nodeR-5,fill:'none',stroke,'stroke-width':'1.5'}));
+    }
+    const fs=state.length>5?'9':state.length>3?'11':'12';
+    const t=mkEl('text',{x:p.x,y:p.y,'text-anchor':'middle','dominant-baseline':'central',fill:text,'font-family':'Space Mono,monospace','font-size':fs,'font-weight':'700'});
+    t.textContent=state;
+    g.appendChild(t);
+    svg.appendChild(g);
+  }
+
+  const lbl=document.getElementById('canvas-label');
+  if(lbl&&canvasLabel) lbl.textContent=canvasLabel;
+}
+
+// ===================================================================
+// BUILD ANIMATION STEPS
+// ===================================================================
+function buildGraphSteps(dfa,result){
+  const steps=[];
+  steps.push({label:'ORIGINAL DFA',desc:'Original unreduced DFA',states:result.originalReachable,alphabet:dfa.alphabet,initial:dfa.initial,accepting:dfa.accepting,transitions:dfa.transitions,highlight:null});
+  for(const ps of result.steps){
+    if(ps.type==='split') steps.push({label:`ITER ${ps.iteration} — SPLIT`,desc:ps.desc,states:result.originalReachable,alphabet:dfa.alphabet,initial:dfa.initial,accepting:dfa.accepting,transitions:dfa.transitions,highlight:ps.partition});
+    else if(ps.type==='stable') steps.push({label:'STABLE PARTITION',desc:ps.desc,states:result.originalReachable,alphabet:dfa.alphabet,initial:dfa.initial,accepting:dfa.accepting,transitions:dfa.transitions,highlight:ps.partition});
+  }
+  const m=result.minDFA;
+  steps.push({label:'MINIMIZED DFA',desc:`Final minimized DFA — ${m.states.length} state${m.states.length!==1?'s':''}`,states:m.states,alphabet:m.alphabet,initial:m.initial,accepting:m.accepting,transitions:m.transitions,highlight:null,isFinal:true});
+  return steps;
+}
+
+// ===================================================================
+// RENDER PARTITION STEPS
+// ===================================================================
+function renderPartitionSteps(steps){
+  const container=document.getElementById('partition-steps');
+  container.innerHTML='';
+  steps.forEach(step=>{
+    const div=document.createElement('div');
+    div.className='partition-step';
+    const header=document.createElement('div');
+    header.className='step-header';
+    const badge=document.createElement('span');
+    badge.className=`step-badge ${step.type==='initial'?'initial':step.type==='stable'?'stable':'split'}`;
+    badge.textContent=step.type==='initial'?'INIT':step.type==='stable'?'STABLE':`ITER ${step.iteration}`;
+    header.appendChild(badge);
+    const desc=document.createElement('span');
+    desc.className='step-desc'; desc.textContent=step.desc;
+    header.appendChild(desc);
+    div.appendChild(header);
+
+    const row=document.createElement('div');
+    row.className='partitions-row';
+    step.partition.forEach((group,gi)=>{
+      const gDiv=document.createElement('div');
+      gDiv.className=`partition-group group-${gi%6}`;
+      if(step.type==='stable') gDiv.classList.add('stable');
+      if(step.type==='split'&&step.splitResult){
+        const isSplit=step.splitResult.some(sr=>[...sr].sort().join(',')===[...group].sort().join(','));
+        if(isSplit) gDiv.classList.add('split-hl');
+      }
+      const pl=document.createElement('span'); pl.className='p-label'; pl.textContent=`P${gi}`; gDiv.appendChild(pl);
+      group.forEach(state=>{const sp=document.createElement('span');sp.className='p-state';sp.textContent=state;gDiv.appendChild(sp);});
+      row.appendChild(gDiv);
+    });
+    div.appendChild(row);
+
+    if(step.type==='split'&&step.splitGroup){
+      const note=document.createElement('div');
+      note.style.cssText='margin-top:7px;font-family:Space Mono,monospace;font-size:11px;color:#ff2d9f;';
+      note.textContent=`↳ {${step.splitGroup.join(', ')}} split because states have different transition targets under current partition`;
+      div.appendChild(note);
+    }
+    container.appendChild(div);
+  });
+}
+
+// ===================================================================
+// TRANSITION TABLE
+// ===================================================================
+function renderTransitionTable(dfa,result,cid){
+  const container=document.getElementById(cid);
+  container.innerHTML='';
+  const reachable=result.originalReachable;
+  const hexes=['#00e5ff','#a259ff','#00ff94','#ff6b35','#ff2d9f','#ffd93d'];
+  const rgbs=['0,229,255','162,89,255','0,255,148','255,107,53','255,45,159','255,217,61'];
+  const gi=s=>result.partition.findIndex(g=>g.includes(s));
+
+  // Original
+  const t1=document.createElement('div');
+  t1.style.cssText='margin-bottom:13px;font-size:13px;font-weight:700;color:var(--text-secondary);';
+  t1.textContent='Original DFA — Transition Table'; container.appendChild(t1);
+  const w1=document.createElement('div'); w1.className='tt-wrap';
+  const tb1=document.createElement('table');
+  const th1=document.createElement('thead'); const hr1=document.createElement('tr');
+  ['State','Type',...dfa.alphabet,'Group'].forEach(h=>{const th=document.createElement('th');th.textContent=h;hr1.appendChild(th);});
+  th1.appendChild(hr1); tb1.appendChild(th1);
+  const bd1=document.createElement('tbody');
+  for(const state of reachable){
+    const tr=document.createElement('tr');
+    const s1=document.createElement('td'); s1.className='state-col'; s1.textContent=state; tr.appendChild(s1);
+    const s2=document.createElement('td');
+    const tags=[];
+    if(state===dfa.initial) tags.push('<span class="tag cyan">→ init</span>');
+    if(dfa.accepting.includes(state)) tags.push('<span class="tag green">✓ acc</span>');
+    if(!tags.length) tags.push('<span style="color:#9988cc;font-family:Space Mono,monospace;font-size:10px;">normal</span>');
+    s2.innerHTML=tags.join(' '); tr.appendChild(s2);
+    for(const sym of dfa.alphabet){
+      const td=document.createElement('td');
+      const t=dfa.transitions[state]?.[sym];
+      td.textContent=t||'—'; if(!t) td.style.color='var(--text-dim)'; tr.appendChild(td);
+    }
+    const g=gi(state);
+    const s3=document.createElement('td');
+    s3.innerHTML=`<span style="background:rgba(${rgbs[g%6]},.15);color:${hexes[g%6]};font-family:Space Mono,monospace;font-size:10px;padding:2px 8px;border-radius:4px;">P${g}</span>`;
+    tr.appendChild(s3);
+    bd1.appendChild(tr);
+  }
+  tb1.appendChild(bd1); w1.appendChild(tb1); container.appendChild(w1);
+
+  // Minimized
+  const t2=document.createElement('div');
+  t2.style.cssText='margin:20px 0 13px;font-size:13px;font-weight:700;color:var(--text-secondary);';
+  t2.textContent='Minimized DFA — Transition Table'; container.appendChild(t2);
+  const w2=document.createElement('div'); w2.className='tt-wrap';
+  const tb2=document.createElement('table');
+  const th2=document.createElement('thead'); const hr2=document.createElement('tr');
+  ['State','Members','Type',...result.minDFA.alphabet].forEach(h=>{const th=document.createElement('th');th.textContent=h;hr2.appendChild(th);});
+  th2.appendChild(hr2); tb2.appendChild(th2);
+  const bd2=document.createElement('tbody');
+  for(const ms of result.minStates){
+    const tr=document.createElement('tr');
+    const s1=document.createElement('td'); s1.className='state-col'; s1.style.color='var(--accent-cyan)'; s1.textContent=ms.id; tr.appendChild(s1);
+    const s2=document.createElement('td'); s2.innerHTML=ms.members.map(m=>`<span class="tag cyan">${m}</span>`).join(' '); tr.appendChild(s2);
+    const s3=document.createElement('td');
+    const tags2=[];
+    if(ms.isInitial) tags2.push('<span class="tag cyan">→</span>');
+    if(ms.isAccepting) tags2.push('<span class="tag green">✓</span>');
+    if(!tags2.length) tags2.push('<span style="color:var(--text-dim)">—</span>');
+    s3.innerHTML=tags2.join(' '); tr.appendChild(s3);
+    for(const sym of result.minDFA.alphabet){
+      const td=document.createElement('td');
+      const t=result.minDFA.transitions[ms.id]?.[sym];
+      td.textContent=t||'—'; if(!t) td.style.color='var(--text-dim)'; tr.appendChild(td);
+    }
+    bd2.appendChild(tr);
+  }
+  tb2.appendChild(bd2); w2.appendChild(tb2); container.appendChild(w2);
+}
+
+// ===================================================================
+// EQUIVALENCE TABLE
+// ===================================================================
+function renderEquivTable(dfa,result){
+  const container=document.getElementById('equiv-content');
+  container.innerHTML='';
+  const states=result.originalReachable;
+  const gi=s=>result.partition.findIndex(g=>g.includes(s));
+  const equiv=(s,t)=>{const a=gi(s),b=gi(t);return a!==-1&&a===b;};
+
+  const legend=document.createElement('div');
+  legend.style.cssText='margin-bottom:13px;font-family:Space Mono,monospace;font-size:11px;color:var(--text-secondary);line-height:1.6;';
+  legend.innerHTML='<span style="color:var(--accent-green)">■ ≡</span> Same partition (equivalent) &nbsp;&nbsp; <span style="color:var(--accent-pink)">■ ≠</span> Different partitions (distinguishable)';
+  container.appendChild(legend);
+
+  const wrap=document.createElement('div'); wrap.style.overflowX='auto';
+  const tbl=document.createElement('table'); tbl.className='equiv-table';
+  const thead=document.createElement('thead'); const hr=document.createElement('tr');
+  const eh=document.createElement('th'); eh.textContent=''; hr.appendChild(eh);
+  states.forEach(s=>{const th=document.createElement('th');th.textContent=s;hr.appendChild(th);});
+  thead.appendChild(hr); tbl.appendChild(thead);
+  const tbody=document.createElement('tbody');
+  states.forEach(s=>{
+    const tr=document.createElement('tr');
+    const rh=document.createElement('th'); rh.textContent=s; tr.appendChild(rh);
+    states.forEach(t=>{
+      const td=document.createElement('td'); td.className='equiv-cell';
+      if(s===t){td.className+=' empty';td.textContent='—';}
+      else{td.className+=equiv(s,t)?' equiv':' not-equiv';td.textContent=equiv(s,t)?'≡':'≠';}
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+  tbl.appendChild(tbody); wrap.appendChild(tbl); container.appendChild(wrap);
+
+  const pairs=[];
+  for(let i=0;i<states.length;i++)
+    for(let j=i+1;j<states.length;j++)
+      if(equiv(states[i],states[j])) pairs.push([states[i],states[j]]);
+
+  const pd=document.createElement('div'); pd.style.marginTop='18px';
+  if(pairs.length){
+    const pt=document.createElement('div');
+    pt.style.cssText='font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;';
+    pt.textContent='Equivalent pairs (to be merged):'; pd.appendChild(pt);
+    const pr=document.createElement('div'); pr.style.cssText='display:flex;gap:8px;flex-wrap:wrap;';
+    pairs.forEach(([a,b])=>{const c=document.createElement('span');c.className='tag green';c.textContent=`{${a}, ${b}}`;pr.appendChild(c);});
+    pd.appendChild(pr);
+  } else {
+    const note=document.createElement('div'); note.className='info-box'; note.style.marginTop='0';
+    note.innerHTML='No equivalent pairs — this DFA is <strong>already minimal</strong>.'; pd.appendChild(note);
+  }
+  container.appendChild(pd);
+}
+
+// ===================================================================
+// RESULT PANEL — LARGE DIAGRAMS
+// ===================================================================
+function renderResult(dfa,result){
+  const container=document.getElementById('result-content');
+  container.innerHTML='';
+  const m=result.minDFA;
+  const reduced=result.originalReachable.length-m.states.length;
+
+  const banner=document.createElement('div'); banner.className='result-banner';
+  banner.innerHTML=`<div class="result-banner-icon">${reduced>0?'✦':'◈'}</div>
+    <div>
+      <div class="result-banner-title">${reduced>0?`Reduced: ${result.originalReachable.length} → ${m.states.length} states (−${reduced} removed)`:'DFA is already in minimal form'}</div>
+      <div class="result-banner-sub">${result.iterations} refinement iteration${result.iterations!==1?'s':''} · ${result.partition.length} final partition${result.partition.length!==1?'s':''}</div>
+    </div>`;
+  container.appendChild(banner);
+
+  // Two large SVG diagrams stacked vertically
+  const cmp=document.createElement('div'); cmp.className='result-compare';
+
+  function makeDiagram(svgId,label){
+    const block=document.createElement('div'); block.className='result-dfa-block';
+    block.innerHTML=`<div class="result-dfa-label">${label}</div>`;
+    const wrap=document.createElement('div'); wrap.className='dfa-canvas-wrap';
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    svg.setAttribute('id',svgId); svg.setAttribute('viewBox','0 0 820 440');
+    svg.classList.add('dfa-svg-lg');
+    wrap.appendChild(svg); block.appendChild(wrap); return block;
+  }
+
+  cmp.appendChild(makeDiagram('svg-orig','Original DFA'));
+
+  const arrow=document.createElement('div'); arrow.className='divider-arrow';
+  arrow.innerHTML='↓ &nbsp; After Minimization &nbsp; ↓'; cmp.appendChild(arrow);
+
+  cmp.appendChild(makeDiagram('svg-min','Minimized DFA'));
+  container.appendChild(cmp);
+
+  // Render after paint
+  setTimeout(()=>{
+    renderDFA('svg-orig',result.originalReachable,dfa.alphabet,dfa.initial,dfa.accepting,dfa.transitions,null,'');
+    renderDFA('svg-min',m.states,m.alphabet,m.initial,m.accepting,m.transitions,null,'');
+  },60);
+
+  // Merge info
+  if(result.mergedPairs.length>0){
+    const md=document.createElement('div'); md.style.marginTop='22px';
+    const mt=document.createElement('div'); mt.style.cssText='font-size:13px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;';
+    mt.textContent='Merged State Groups:'; md.appendChild(mt);
+    for(const ms of result.mergedPairs){
+      const chip=document.createElement('div');
+      chip.style.cssText='display:inline-flex;align-items:center;gap:8px;background:var(--bg-surface);border:1px solid var(--border);border-radius:8px;padding:7px 14px;margin:4px;font-family:Space Mono,monospace;font-size:12px;';
+      chip.innerHTML=`<span style="color:var(--accent-violet);font-weight:700;">${ms.id}</span> ← ${ms.members.map(m=>`<span class="tag cyan">${m}</span>`).join(' ')}`;
+      md.appendChild(chip);
+    }
+    container.appendChild(md);
+  }
+
+  // Formal definition
+  const def=document.createElement('div'); def.style.marginTop='22px'; def.className='info-box';
+  def.innerHTML=`<strong>Minimized DFA — Formal Definition:</strong><br>
+Q = {${m.states.join(', ')}}<br>
+Σ = {${m.alphabet.join(', ')}}<br>
+q₀ = ${m.initial}<br>
+F = {${m.accepting.join(', ')}}<br><br>
+<strong>δ (transition function):</strong><br>
+${m.states.map(s=>m.alphabet.map(a=>`δ(${s}, ${a}) = ${m.transitions[s]?.[a]||'∅'}`).join(' &nbsp;&nbsp; ')).join('<br>')}`;
+  container.appendChild(def);
+}
+
+// ===================================================================
+// UI HELPERS
+// ===================================================================
+function show(id){document.getElementById(id).style.display='block';}
+function hide(id){document.getElementById(id).style.display='none';}
+
+function navigateStep(dir){
+  currentStep=Math.max(0,Math.min(allSteps.length-1,currentStep+dir));
+  renderCurrentStep();
+}
+
+function renderCurrentStep(){
+  const step=allSteps[currentStep];
+  document.getElementById('step-current').textContent=currentStep+1;
+  document.getElementById('step-total').textContent=allSteps.length;
+  document.getElementById('step-desc').textContent=step.desc;
+  document.getElementById('step-prev').disabled=currentStep===0;
+  document.getElementById('step-next').disabled=currentStep===allSteps.length-1;
+  renderDFA('dfa-svg',step.states,step.alphabet,step.initial,step.accepting,step.transitions,step.highlight,step.label);
+}
+
+function switchTab(tab){
+  document.querySelectorAll('.viz-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c=>c.style.display='none');
+  document.getElementById(`tab-${tab}`).style.display='block';
+}
+
+function showError(msg){
+  const b=document.getElementById('error-box');
+  b.textContent='⚠ '+msg; b.style.display='block';
+}
+
+function hideError(){document.getElementById('error-box').style.display='none';}
+
+// ===================================================================
+// MAIN
+// ===================================================================
+function runMinimization(){
+  hideError();
+  try{
+    dfaData=parseDFA();
+    minResult=minimizeDFA(dfaData);
+
+    document.getElementById('stat-orig').textContent=minResult.originalReachable.length;
+    document.getElementById('stat-min').textContent=minResult.minDFA.states.length;
+    document.getElementById('stat-reduced').textContent=minResult.originalReachable.length-minResult.minDFA.states.length;
+    document.getElementById('stat-iter').textContent=minResult.iterations;
+    show('stats-bar');
+
+    allSteps=buildGraphSteps(dfaData,minResult);
+    currentStep=0;
+    show('graph-content'); hide('graph-empty');
+    renderCurrentStep();
+
+    show('partition-content'); hide('partition-empty');
+    renderPartitionSteps(minResult.steps);
+
+    show('table-content'); hide('table-empty');
+    renderTransitionTable(dfaData,minResult,'table-content');
+
+    show('equiv-content'); hide('equiv-empty');
+    renderEquivTable(dfaData,minResult);
+
+    show('result-content'); hide('result-empty');
+    renderResult(dfaData,minResult);
+
+    document.getElementById('btn-export').disabled=false;
+  } catch(e){
+    showError(e.message);
+  }
+}
+
+function resetAll(){
+  dfaData=null; minResult=null; allSteps=[]; currentStep=0;
+  hide('stats-bar');
+  ['graph-content','partition-content','table-content','equiv-content','result-content'].forEach(hide);
+  ['graph-empty','partition-empty','table-empty','equiv-empty','result-empty'].forEach(show);
+  document.getElementById('btn-export').disabled=true;
+  hideError();
+}
+
+function exportResult(){
+  if(!minResult||!dfaData) return;
+  const m=minResult.minDFA;
+  const lines=[
+    '# DFA Minimization Result',
+    '',
+    '## Original DFA (reachable states)',
+    `States: ${minResult.originalReachable.join(', ')}`,
+    `Alphabet: ${dfaData.alphabet.join(', ')}`,
+    `Initial: ${dfaData.initial}`,
+    `Accepting: ${dfaData.accepting.join(', ')}`,
+    '',
+    '## Minimization Steps',
+    ...minResult.steps.map((s,i)=>`Step ${i+1} [${s.type.toUpperCase()}]: ${s.desc}`),
+    '',
+    '## Final Minimized DFA',
+    `States: ${m.states.join(', ')}`,
+    `Alphabet: ${m.alphabet.join(', ')}`,
+    `Initial: ${m.initial}`,
+    `Accepting: ${m.accepting.join(', ')}`,
+    '',
+    '## Transition Function',
+    ...m.states.flatMap(s=>m.alphabet.map(a=>`  delta(${s}, ${a}) = ${m.transitions[s]?.[a]||'undefined'}`)),
+    '',
+    '## State Mapping (Original -> Minimized)',
+    ...minResult.minStates.map(ms=>`  ${ms.id}  <-  { ${ms.members.join(', ')} }`),
+  ];
+  const blob=new Blob([lines.join('\n')],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='dfa-minimized.txt'; a.click();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  loadPreset('textbook');
+  runMinimization();
+});
+</script>
+</body>
+</html>
